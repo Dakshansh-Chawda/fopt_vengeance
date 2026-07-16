@@ -46,7 +46,7 @@ def find_surviving_sign_vectors(A, tol=1e-9, verbose=False):
     """
     Parameters
     ----------
-    A : array_like, shape (n_edges, d)
+    A : array_like, shape (n_edges, n_constraints)
         Row e gives the coefficients of the linear form ell_e(tau) = A[e].tau
         appearing in the e-th cone condition sigma_e * ell_e(tau) >= 0.
     tol : float
@@ -62,6 +62,7 @@ def find_surviving_sign_vectors(A, tol=1e-9, verbose=False):
         the cone K_sigma has non-empty interior.
     """
     A = np.asarray(A, dtype=float)
+    A = A.T                         # transpose immediately to shape (n_constraints, n_edges) as in paper
     n_edges, d = A.shape
 
     canonical, rel_sign, reps = _group_parallel_rows(A, tol)
@@ -139,7 +140,7 @@ def _cone_has_interior(A, sigma, tol):
         -1 <= tau_i <= 1                      (harmless box: the cone is
                                                 scale invariant, so this
                                                 never creates a false
-                                                negative -- see module docs)
+                                                negative)
         0 <= epsilon <= 1
 
     and check whether the optimal epsilon is strictly positive.

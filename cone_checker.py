@@ -15,8 +15,14 @@ Core idea (see accompanying discussion):
 
 Usage: 
 
-python cone_checker.py --mode check --matrix '[[1,0],[0,1]]' OR,
-python cone_checker.py --mode demo                           to run examples from the paper  
+1. To check simpliciality for a specific basis
+    python cone_checker.py check --matrix '[[1,0],[0,1]]' --basis '[0,1,3]' 
+
+2. To check simpliciality for all bases
+    python cone_checker.py check --matrix '[[1,0],[0,1]]'
+
+3. To run demo calculations
+    python cone_checker.py demo                           
 """
 
 import numpy as np
@@ -229,10 +235,11 @@ def classify_cone(A_ineq, dim, tol=1e-7):
 # Full scan over all (basis, sigma) pairs for a constraint matrix A
 # ----------------------------------------------------------------------
 
-def scan_matrix(A, tol=1e-7, verbose=False, stop_after_first=False):
+def scan_matrix(A, tol=1e-7, verbose=False, stop_after_first=False, basis=None):
     """
-    Scan every invertible column basis B and every sign vector sigma in
-    {+1,-1}^E, build the corresponding cone K_sigma^B, and classify it.
+    Scan every invertible column basis B (if basis=None, else 
+    check only for the given basis) and every sign vector sigma
+    in {+1,-1}^E, build the corresponding cone K_sigma^B, and classify it.
 
     Parameters
     ----------
@@ -252,16 +259,21 @@ def scan_matrix(A, tol=1e-7, verbose=False, stop_after_first=False):
     dim = F
     results = []
 
+    if basis is not None:
+        basis_set = [tuple(int(i) for i in basis)]
+    else:
+        basis_set = list(combinations(range(E), F))
+
     # quick pre-screen: if every basis is unimodular, nothing to look for
     all_unimodular = True
-    for B_idx in combinations(range(E), F):
+    for B_idx in basis_set:
         AB = A[:, B_idx]
         d = np.linalg.det(AB)
         if abs(d) > tol and abs(round(d)) not in (0, 1):
             all_unimodular = False
             break
     if all_unimodular and verbose:
-        print("Pre-screen: every basis submatrix has |det|<=1 "
+        print("Pre-screen: every basis submatrix has |det|=1 "
               "(matrix is totally unimodular) -> all cones will be simplicial.")
 
     n_simplicial = 0
@@ -269,7 +281,7 @@ def scan_matrix(A, tol=1e-7, verbose=False, stop_after_first=False):
     n_skipped = 0
     n_suspect = 0
 
-    for B_idx in combinations(range(E), F):
+    for B_idx in basis_set:
         AB = A[:, B_idx]
         detAB = np.linalg.det(AB)
         if abs(detAB) < 1e-9:
@@ -367,12 +379,17 @@ if __name__ == "__main__":
 
     p_check = subparsers.add_parser("check", help="Run a custom example")
     p_check.add_argument("--matrix", type=str, help="JSON array of constraint matrix, e.g. '[[1,0],[0,1]]'")
+    p_check.add_argument("--basis", type=str, default=None, help="JSON array of basis indices, e.g. '[0,1,3]'; omit to scan all bases")
 
     args = parser.parse_args()
     if args.mode == "demo":
         run_demo()
     else:
         import json
-        scan_matrix(np.array(json.loads(args.matrix), dtype=float), verbose=True)
+        scan_matrix(
+            A = np.array(json.loads(args.matrix), dtype=float), 
+            basis = np.array(json.loads(args.basis), dtype=float) if args.basis is not None else None, 
+            verbose=True
+            )
 
     
