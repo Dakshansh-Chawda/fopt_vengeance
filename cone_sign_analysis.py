@@ -34,7 +34,8 @@ with every sign flipped, and the *count* is identical either way.
 
 Usage:
 
-python cone_sign_analysis.py --matrix '[[1,0],[0,1]]'
+python cone_sign_analysis.py --matrix '[[1,0],[0,1]]' 
+input matrix shape as (n_edges, n_constraints)
 """
 
 from itertools import product
@@ -62,7 +63,6 @@ def find_surviving_sign_vectors(A, tol=1e-9, verbose=False):
         the cone K_sigma has non-empty interior.
     """
     A = np.asarray(A, dtype=float)
-    A = A.T                         # transpose immediately to shape (n_constraints, n_edges) as in paper
     n_edges, d = A.shape
 
     canonical, rel_sign, reps = _group_parallel_rows(A, tol)
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     import json
 
     parser = argparse.ArgumentParser(description="cone decomposition")
-    parser.add_argument("--matrix", type=str, help="JSON array of constraint matrix, e.g. '[[1,0],[0,1]]'")
+    parser.add_argument("--matrix", type=str, help="JSON array of constraint matrix, e.g. '[[1,0],[0,1]]' shape (n_edges, n_constraints)")
     args = parser.parse_args()
     full_run(np.array(json.loads(args.matrix), dtype=float))
     
