@@ -80,6 +80,11 @@ def plot_cone_decomposition_interactive(A, survivors, n_pts=8000, title=None):
     title     : optional figure title
     """
     A  = np.asarray(A, dtype=float)
+    if A.shape[1] != 3:
+        raise ValueError(
+            f'plot_cone_decomposition_interactive requires dim == 3, got {A.shape[1]} '
+            '(use full_generic_analysis.plot_cone_decomposition for dim 2, or '
+            'interactive_4d_plots.plot_cone_decomposition_interactive_4d for dim 4)')
     nc = len(survivors)
 
     # Fibonacci lattice on S²
@@ -136,6 +141,12 @@ def plot_3d_interactive(zonotopes, orientations=None, label_vertices=True):
     """
     if isinstance(zonotopes, Zonotope):
         zonotopes = [zonotopes]
+    for z in zonotopes:
+        if z.dim != 3:
+            raise ValueError(
+                f'plot_3d_interactive requires dim == 3, got {z.dim} '
+                '(use zonotope_analysis.plot for dim 2, or '
+                'interactive_4d_plots.plot_4d_interactive for dim 4)')
     n = len(zonotopes)
 
     specs = [[{'type': 'scene'} for _ in range(n)]]
@@ -214,6 +225,13 @@ def plot_primal_dual_3d_interactive(cases, orientations=None, titles=None):
     """
     if not isinstance(cases, (list, tuple)):
         cases = [cases]
+    for case in cases:
+        dim = case.dim if isinstance(case, Zonotope) else np.asarray(case).shape[1]
+        if dim != 3:
+            raise ValueError(
+                f'plot_primal_dual_3d_interactive requires dim == 3, got {dim} '
+                '(use dual_analysis.plot_primal_dual for dim 2, or '
+                'interactive_4d_plots.plot_primal_dual_4d_interactive for dim 4)')
     n = len(cases)
 
     specs     = [[{'type': 'scene'}, {'type': 'scene'}] for _ in range(n)]

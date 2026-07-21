@@ -262,6 +262,18 @@ class Zonotope:
         if len(unique_pts) <= self.dim:
             return base                      # degenerate: no full-dim hull
 
+        if self.dim == 1:
+            # scipy's ConvexHull (Qhull) does not support 1-D input at all,
+            # but a 1-D "zonotope" is just an interval -- its hull is simply
+            # [min, max], computed directly with no LP/Qhull needed.
+            lo, hi = unique_pts[:, 0].min(), unique_pts[:, 0].max()
+            hull_pts = np.array([[lo], [hi]])
+            on_hull = (np.isclose(verts[:, 0], lo, atol=1e-9) |
+                       np.isclose(verts[:, 0], hi, atol=1e-9))
+            base.update(hull_pts=hull_pts, on_hull=on_hull, n_sides=2,
+                        collinear=[])
+            return base
+
         try:
             hull = ConvexHull(unique_pts)
         except QhullError:                   # flat / degenerate configuration
@@ -399,7 +411,8 @@ def print_table(z, orientations=None):
         coords = "  ".join(f"{verts[idx, k]:>8.3f}" for k in range(z.dim))
         status = "hull" if on_hull[idx] else "interior"
         print(f"  {name:>4}  {sigma_str:^{2*z.m+3}}  {coords}  {status}")
-    hull_desc = (f"{res['n_sides']}-gon" if z.dim == 2 else
+    hull_desc = (f"{res['n_sides']} endpoints" if z.dim == 1 else
+                 f"{res['n_sides']}-gon" if z.dim == 2 else
                  f"{res['n_sides']} triangulated facets")
     print(f"\n  Hull: {hull_desc}   "
           f"({on_hull.sum()} of {len(verts)} sigma-points on hull)")

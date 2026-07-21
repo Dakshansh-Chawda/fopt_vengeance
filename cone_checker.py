@@ -132,6 +132,12 @@ def facet_indices(A_ineq, tol=1e-7, box=1.0):
                 continue
             A_ub.append(-A_reduced[j])
             b_ub.append(0.0)
+        # m == 1 (no other constraints to compare against) is the generic
+        # case for a full-dimensional pointed cone in dim == 1 -- a ray in R
+        # has exactly one defining inequality. linprog wants None, not an
+        # empty list, to mean "no inequality constraints".
+        if not A_ub:
+            A_ub, b_ub = None, None
         bounds = [(-box, box)] * A_ineq.shape[1]
         res = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
         if res.success and res.fun < -tol:
@@ -234,12 +240,62 @@ def classify_cone(A_ineq, dim, tol=1e-7):
 
 
 # ----------------------------------------------------------------------
+# Basis reduction: raw constraint matrix + column basis -> generators a_e^B
+# ----------------------------------------------------------------------
+
+def basis_generators(A, basis, tol=1e-9):
+    """
+    Reduce the raw (E, F) constraint matrix to the basis-dependent generator
+    matrix R_B (rows a_e^B), following the paper's eq. (1.21):
+
+        R_B = A^T (A_B^{-1})^T   ,   equivalently   R_B = A @ inv(A[basis, :])
+
+    where A_B = A[basis, :] is the F x F submatrix picked out by `basis`
+    (an invertible choice of F edges). For e in `basis`, row e of R_B is a
+    standard basis vector (up to which coordinate), since A_B @ A_B^{-1} = I
+    -- e.g. the tree-diagram example (paper sec. 3.1) reproduces eq. (3.5)
+    and eq. (3.9) exactly from this formula.
+
+    Parameters
+    ----------
+    A     : (E, F) array -- raw constraint matrix, rows = edges.
+    basis : length-F sequence of edge indices (0-indexed rows of A) whose
+            submatrix A[basis, :] is invertible.
+    tol   : singularity threshold on det(A_B).
+
+    Returns
+    -------
+    R_B    : (E, F) array, row e is the generator a_e^B.
+    det_AB : determinant of A[basis, :] (sign/magnitude are meaningful --
+             see | det A_B | in the volume normalisation, eq. 1.48).
+    """
+    A = np.asarray(A, dtype=float)
+    E, F = A.shape
+    basis = tuple(int(i) for i in basis)
+    if len(basis) != F:
+        raise ValueError(f"basis must have exactly F={F} edge indices "
+                          f"(one per constraint), got {len(basis)}: {basis}")
+    if len(set(basis)) != len(basis):
+        raise ValueError(f"basis indices must be distinct, got {basis}")
+    if any(i < 0 or i >= E for i in basis):
+        raise ValueError(f"basis indices must be in [0, {E - 1}], got {basis}")
+
+    A_B = A[basis, :]
+    det_AB = np.linalg.det(A_B)
+    if abs(det_AB) < tol:
+        raise ValueError(f"basis {basis} is singular (det A_B = {det_AB:.3g}); "
+                          "these edges do not form a valid column basis")
+    R_B = A @ np.linalg.inv(A_B)
+    return R_B, det_AB
+
+
+# ----------------------------------------------------------------------
 # Full scan over all (basis, sigma) pairs for a constraint matrix A
 # ----------------------------------------------------------------------
 
 def scan_matrix(A, tol=1e-7, verbose=False, stop_after_first=False, basis=None):
     """
-    Scan every invertible column basis B (if basis=None, else 
+    Scan every invertible column basis B (if basis=None, else
     check only for the given basis) and every sign vector sigma
     in {+1,-1}^E, build the corresponding cone K_sigma^B, and classify it.
 
@@ -257,12 +313,11 @@ def scan_matrix(A, tol=1e-7, verbose=False, stop_after_first=False, basis=None):
         'basis', 'sigma', 'det_AB', plus the classify_cone() output.
     """
     A = np.asarray(A, dtype=float)
-    A = A.T
-    F, E = A.shape
+    E, F = A.shape
     # Sanity check:
     if F > E:
         raise ValueError("Num of constraints (F) should be less than Num of Edges (E)." \
-        "Found F>E. Perhaps you input the transpose matrix?") 
+        "Found F>E. Perhaps you input the transpose matrix?")
     dim = F
     results = []
 
@@ -277,12 +332,10 @@ def scan_matrix(A, tol=1e-7, verbose=False, stop_after_first=False, basis=None):
     n_suspect = 0
 
     for B_idx in basis_set:
-        AB = A[:, B_idx]
-        detAB = np.linalg.det(AB)
-        if abs(detAB) < 1e-9:
-            continue
-        AB_inv = np.linalg.inv(AB)
-        R_B = A.T @ AB_inv.T  # (E x F)
+        try:
+            R_B, detAB = basis_generators(A, B_idx)
+        except ValueError:
+            continue  # singular basis
 
         for bits in product([1, -1], repeat=E):
             sigma = np.array(bits, dtype=float)

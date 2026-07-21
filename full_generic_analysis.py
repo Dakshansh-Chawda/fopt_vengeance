@@ -203,6 +203,14 @@ def plot_primal_dual_3d(cases, orientations=None, figsize=None, titles=None):
     """
     if not isinstance(cases, (list, tuple)):
         cases = [cases]
+    dims = [c.dim if isinstance(c, Zonotope) else np.asarray(c).shape[1]
+            for c in cases]
+    if all(d == 2 for d in dims):
+        return plot_primal_dual(cases, orientations=orientations,
+                                figsize=figsize, titles=titles)
+    if any(d != 3 for d in dims):
+        raise ValueError('plot_primal_dual_3d: all cases must have dim == 2 or dim == 3')
+
     n   = len(cases)
     fig = plt.figure(figsize=figsize or (12, 6 * n))
 

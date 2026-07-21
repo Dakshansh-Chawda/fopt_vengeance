@@ -47,6 +47,20 @@ def polar_dual(points, center=None, tol=1e-9, return_hull=False):
         c0 = np.asarray(center, dtype=float)
 
     P = pts - c0
+
+    if dim == 1:
+        # Qhull (scipy's ConvexHull) does not support 1-D input; the polar
+        # dual of an interval [lo, hi] (0 strictly interior) is the interval
+        # [1/lo, 1/hi], read straight off the two facet inequalities
+        # lo*y <= 1, hi*y <= 1.
+        lo, hi = P.min(), P.max()
+        if lo >= -tol or hi <= tol:
+            raise ValueError(
+                "Center is not strictly interior to the polytope; "
+                "polar dual has a vertex at infinity. Try center='centroid'.")
+        dual = np.array([[1.0 / lo], [1.0 / hi]])
+        return (dual, None) if return_hull else dual
+
     hull = ConvexHull(P)
 
     # Qhull facet equations:  A x + b <= 0  for interior points.
@@ -68,8 +82,10 @@ def polar_dual(points, center=None, tol=1e-9, return_hull=False):
 
 
 def volume(points):
-    """Volume (area in 2D) of conv(points), any dimension."""
+    """Volume (area in 2D, length in 1D) of conv(points), any dimension."""
     pts = np.atleast_2d(np.asarray(points, dtype=float))
+    if pts.shape[1] == 1:
+        return float(pts.max() - pts.min())
     return ConvexHull(pts).volume
 
 
@@ -99,9 +115,13 @@ def print_dual_table(z, orientations=None, factorial_dim=None):
     Print primal hull vertices, their dual counterparts, and volumes,
     including the companion-paper normalisation  |F|! * Vol(P*).
 
+    Works in any dimension (column count follows z.dim); the 2-D case keeps
+    its original column widths/precision, other dimensions get an N-tuple
+    formatted the same way as zonotope_analysis.print_table().
+
     Parameters
     ----------
-    z             : Zonotope (dim == 2 for the table layout)
+    z             : Zonotope, any dim >= 1
     orientations  : optional restricted sign-vector list (e.g. only the
                     non-empty cones)
     factorial_dim : if given (e.g. |F| = 2), also prints
@@ -110,23 +130,33 @@ def print_dual_table(z, orientations=None, factorial_dim=None):
     res = z.analyse(orientations)
     hull_pts = res["hull_pts"]
     dual = z.polar_dual(orientations)
+    dim = z.dim
 
-    print(f"  Primal hull: {res['n_sides']}-gon,  "
-          f"dual: {len(dual)} vertices")
-    print(f"  {'primal vertex':^24} {'dual vertex':^28}")
-    print("  " + "-" * 54)
+    def fmt(pt, decimals, width):
+        return "(" + ", ".join(f"{x:>{width}.{decimals}f}" for x in pt) + ")"
+
+    p_strs = [fmt(p, 3, 7) for p in hull_pts]     # primal: paper's original precision
+    d_strs = [fmt(p, 6, 10) for p in dual]        # dual: extra precision (often small fractions)
+    p_w = max((len(s) for s in p_strs), default=13)
+    d_w = max((len(s) for s in d_strs), default=13)
+
+    hull_label = (f"{res['n_sides']} endpoints" if dim == 1 else
+                  f"{res['n_sides']}-gon" if dim == 2 else
+                  f"{res['n_sides']} facets")
+    print(f"  Primal hull: {hull_label},  dual: {len(dual)} vertices")
+    print(f"  {'primal vertex':^{p_w}} {'dual vertex':^{d_w}}")
+    print("  " + "-" * (p_w + d_w + 1))
     n = max(len(hull_pts), len(dual))
     for i in range(n):
-        p = (f"({hull_pts[i, 0]:>7.3f}, {hull_pts[i, 1]:>7.3f})"
-             if i < len(hull_pts) else "")
-        d = (f"({dual[i, 0]:>10.6f}, {dual[i, 1]:>10.6f})"
-             if i < len(dual) else "")
-        print(f"  {p:^24} {d:^28}")
+        p = p_strs[i] if i < len(p_strs) else ""
+        d = d_strs[i] if i < len(d_strs) else ""
+        print(f"  {p:^{p_w}} {d:^{d_w}}")
 
     vol_p = volume(hull_pts)
     vol_d = volume(dual)
-    print(f"\n  Vol(P)  = {vol_p:.6f}")
-    print(f"  Vol(P*) = {vol_d:.6f}")
+    vol_word = "length" if dim == 1 else "area" if dim == 2 else "volume"
+    print(f"\n  {vol_word.capitalize()}(P)  = {vol_p:.6f}")
+    print(f"  {vol_word.capitalize()}(P*) = {vol_d:.6f}")
     if factorial_dim:
         import math
         f = math.factorial(factorial_dim)
