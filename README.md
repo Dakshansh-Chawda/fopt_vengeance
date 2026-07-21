@@ -8,5 +8,5 @@ Notebook with script code (and examples based on the paper) for computing zonoto
 - full_generic_analysis: Uses above scripts and generalizes it upto 3D
 - interactive_3d_plots: same functionality as full_generic_analysis, but the plots are interactive   
 - interactive_4d_plots: same as interactive_3d_plots with a heat map for fourth dimension
-- pipeline.py         : the MAIN file the streamlines everything into a single pipeline for analysis
+- pipeline.py         : the MAIN file that streamlines everything into a single pipeline for analysis
 - zonotope.ipynb      : notebook with examples and plots from the draft
