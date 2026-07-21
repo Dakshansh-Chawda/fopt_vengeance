@@ -399,7 +399,9 @@ def print_table(z, orientations=None):
         coords = "  ".join(f"{verts[idx, k]:>8.3f}" for k in range(z.dim))
         status = "hull" if on_hull[idx] else "interior"
         print(f"  {name:>4}  {sigma_str:^{2*z.m+3}}  {coords}  {status}")
-    print(f"\n  Hull: {res['n_sides']}-gon   "
+    hull_desc = (f"{res['n_sides']}-gon" if z.dim == 2 else
+                 f"{res['n_sides']} triangulated facets")
+    print(f"\n  Hull: {hull_desc}   "
           f"({on_hull.sum()} of {len(verts)} sigma-points on hull)")
     if z.dim == 2:
         pred = z.predicted_hull_sides()

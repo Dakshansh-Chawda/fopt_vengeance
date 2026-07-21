@@ -5,6 +5,7 @@ Supports dim <= 3; dim == 2 delegates to the existing plot() / plot_primal_dual(
 from mpl_toolkits.mplot3d import Axes3D           # noqa: F401  (activates 3-D projection)
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from dual_analysis import *
+import numpy as np
 
 # ---------------------------------------------------------------------------
 # Shared 3-D helpers

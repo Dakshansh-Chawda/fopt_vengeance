@@ -65,7 +65,7 @@ def _scene_cfg(title_x='Q₁', title_y='Q₂', title_z='Q₃'):
 # 1. Interactive cone decomposition on S²
 # ---------------------------------------------------------------------------
 
-def plot_cone_decomposition_interactive(A, survivors, n_pts=800, title=None):
+def plot_cone_decomposition_interactive(A, survivors, n_pts=8000, title=None):
     """
     Interactive Plotly version of plot_cone_decomposition() for dim == 3.
 

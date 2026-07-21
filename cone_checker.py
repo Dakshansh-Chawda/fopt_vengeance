@@ -2,9 +2,10 @@
 cone_checker.py
 
 General-purpose tool to check, for a Feynman-matroid constraint matrix A
-(rows = constraints, |F| x |E|, entries in {-1,0,1}), whether the cones
-K_sigma^B appearing in the matroid-polytope construction are simplicial
-or non-simplicial, for every choice of column basis B and sign vector sigma.
+(rows = edges, columns = constraints, |E| x |F|, entries in {-1,0,1}),
+whether the cones K_sigma^B appearing in the matroid-polytope construction
+are simplicial or non-simplicial, for every choice of column basis B and
+sign vector sigma.
 
 Core idea (see accompanying discussion):
   1. Full-dimensionality check   -- discard degenerate (lower-dim) cones.
@@ -14,6 +15,7 @@ Core idea (see accompanying discussion):
   5. Ray-count cross-check       -- independent V-representation sanity check.
 
 Usage: 
+--matrix shape (E,F) or (Num edges, Num constraints)
 
 1. To check simpliciality for a specific basis
     python cone_checker.py check --matrix '[[1,0],[0,1]]' --basis '[0,1,3]' 
@@ -243,7 +245,7 @@ def scan_matrix(A, tol=1e-7, verbose=False, stop_after_first=False, basis=None):
 
     Parameters
     ----------
-    A : (F, E) array, entries typically in {-1, 0, 1}
+    A : (E, F) array, entries typically in {-1, 0, 1}
     verbose : print a running summary
     stop_after_first : stop as soon as one non-simplicial cone is found
                         (useful for a quick existence check on large E)
@@ -255,7 +257,12 @@ def scan_matrix(A, tol=1e-7, verbose=False, stop_after_first=False, basis=None):
         'basis', 'sigma', 'det_AB', plus the classify_cone() output.
     """
     A = np.asarray(A, dtype=float)
+    A = A.T
     F, E = A.shape
+    # Sanity check:
+    if F > E:
+        raise ValueError("Num of constraints (F) should be less than Num of Edges (E)." \
+        "Found F>E. Perhaps you input the transpose matrix?") 
     dim = F
     results = []
 
@@ -263,18 +270,6 @@ def scan_matrix(A, tol=1e-7, verbose=False, stop_after_first=False, basis=None):
         basis_set = [tuple(int(i) for i in basis)]
     else:
         basis_set = list(combinations(range(E), F))
-
-    # quick pre-screen: if every basis is unimodular, nothing to look for
-    all_unimodular = True
-    for B_idx in basis_set:
-        AB = A[:, B_idx]
-        d = np.linalg.det(AB)
-        if abs(d) > tol and abs(round(d)) not in (0, 1):
-            all_unimodular = False
-            break
-    if all_unimodular and verbose:
-        print("Pre-screen: every basis submatrix has |det|=1 "
-              "(matrix is totally unimodular) -> all cones will be simplicial.")
 
     n_simplicial = 0
     n_nonsimplicial = 0
@@ -352,7 +347,7 @@ def run_demo():
         [-1, 0, 0, 1, 1, 0],
         [0, -1, 0, -1, 0, 1],
     ], dtype=float)
-    scan_matrix(aG_K4, verbose=True)
+    scan_matrix(aG_K4.T, verbose=True)
 
     print()
     print("=" * 70)
@@ -363,7 +358,7 @@ def run_demo():
         [0, 1, -1, 1, -1, 0],
         [1, 0, 1, 0, 1, -1],
     ], dtype=float)
-    scan_matrix(A_nongraphic, verbose=True, stop_after_first=True)
+    scan_matrix(A_nongraphic.T, verbose=True, stop_after_first=True)
 
 # ----------------------------------------------------------------------
 # MAIN
